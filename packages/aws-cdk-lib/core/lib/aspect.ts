@@ -40,7 +40,10 @@ export interface AspectOptions {
    * The priority value to apply on an Aspect.
    * Priority must be a non-negative integer.
    *
-   * @default - AspectPriority.DEFAULT
+   * Aspects that have same priority value are not guaranteed to be
+   * executed in a consistent order.
+   *
+   * @default AspectPriority.DEFAULT
    */
   readonly priority?: number;
 }
@@ -82,7 +85,11 @@ export class Aspects {
    * @param options Options to apply on this aspect.
    */
   public add(aspect: IAspect, options?: AspectOptions) {
-    this._appliedAspects.push(new AspectApplication(this._scope, aspect, options?.priority ?? AspectPriority.DEFAULT));
+    const newApplication = new AspectApplication(this._scope, aspect, options?.priority ?? AspectPriority.DEFAULT);
+    if (this._appliedAspects.some(a => a.aspect === newApplication.aspect && a.priority === newApplication.priority)) {
+      return;
+    }
+    this._appliedAspects.push(newApplication);
   }
 
   /**
