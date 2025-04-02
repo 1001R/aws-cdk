@@ -125,6 +125,10 @@ export const IAM_OIDC_REJECT_UNAUTHORIZED_CONNECTIONS = '@aws-cdk/aws-iam:oidcRe
 export const ENABLE_ADDITIONAL_METADATA_COLLECTION = '@aws-cdk/core:enableAdditionalMetadataCollection';
 export const LAMBDA_CREATE_NEW_POLICIES_WITH_ADDTOROLEPOLICY = '@aws-cdk/aws-lambda:createNewPoliciesWithAddToRolePolicy';
 export const SET_UNIQUE_REPLICATION_ROLE_NAME = '@aws-cdk/aws-s3:setUniqueReplicationRoleName';
+export const PIPELINE_REDUCE_STAGE_ROLE_TRUST_SCOPE = '@aws-cdk/pipelines:reduceStageRoleTrustScope';
+export const EVENTBUS_POLICY_SID_REQUIRED = '@aws-cdk/aws-events:requireEventBusPolicySid';
+export const DYNAMODB_TABLE_RETAIN_TABLE_REPLICA = '@aws-cdk/aws-dynamodb:retainTableReplica';
+export const LOG_USER_POOL_CLIENT_SECRET_VALUE ='@aws-cdk/cognito:logUserPoolClientSecretValue';
 
 export const FLAGS: Record<string, FlagInfo> = {
   //////////////////////////////////////////////////////////////////////
@@ -1388,6 +1392,8 @@ export const FLAGS: Record<string, FlagInfo> = {
     introducedIn: { v2: '2.178.0' },
     recommendedValue: true,
   },
+
+  //////////////////////////////////////////////////////////////////////
   [LAMBDA_CREATE_NEW_POLICIES_WITH_ADDTOROLEPOLICY]: {
     type: FlagType.BugFix,
     summary: 'When enabled, Lambda will create new inline policies with AddToRolePolicy instead of adding to the Default Policy Statement',
@@ -1399,6 +1405,8 @@ export const FLAGS: Record<string, FlagInfo> = {
     introducedIn: { v2: '2.180.0' },
     recommendedValue: true,
   },
+
+  //////////////////////////////////////////////////////////////////////
   [SET_UNIQUE_REPLICATION_ROLE_NAME]: {
     type: FlagType.BugFix,
     summary: 'When enabled, CDK will automatically generate a unique role name that is used for s3 object replication.',
@@ -1407,8 +1415,74 @@ export const FLAGS: Record<string, FlagInfo> = {
       When this feature flag is enabled, a unique role name is specified only when performing cross-account replication.
       When disabled, 'CDKReplicationRole' is always specified.
     `,
-    introducedIn: { v2: 'V2NEXT' },
+    introducedIn: { v2: '2.182.0' },
     recommendedValue: true,
+  },
+
+  //////////////////////////////////////////////////////////////////////
+  [PIPELINE_REDUCE_STAGE_ROLE_TRUST_SCOPE]: {
+    type: FlagType.ApiDefault,
+    summary: 'Remove the root account principal from Stage addActions trust policy',
+    detailsMd: `
+      When this feature flag is enabled, the root account principal will not be added to the trust policy of stage role.
+      When this feature flag is disabled, it will keep the root account principal in the trust policy.
+    `,
+    introducedIn: { v2: '2.184.0' },
+    defaults: { v2: true },
+    recommendedValue: true,
+    compatibilityWithOldBehaviorMd: 'Disable the feature flag to add the root account principal back',
+  },
+
+  //////////////////////////////////////////////////////////////////////
+  [EVENTBUS_POLICY_SID_REQUIRED]: {
+    type: FlagType.BugFix,
+    summary: 'When enabled, grantPutEventsTo() will use resource policies with Statement IDs for service principals.',
+    detailsMd: `
+      Currently, when granting permissions to service principals using grantPutEventsTo(), the operation silently fails 
+      because service principals require resource policies with Statement IDs. 
+
+      When this flag is enabled:
+      - Resource policies will be created with Statement IDs for service principals
+      - The operation will succeed as expected
+      
+      When this flag is disabled:
+      - A warning will be emitted
+      - The grant operation will be dropped
+      - No permissions will be added
+
+      This fixes the issue where permissions were silently not being added for service principals.
+    `,
+    introducedIn: { v2: '2.186.0' },
+    recommendedValue: true,
+  },
+
+  //////////////////////////////////////////////////////////////////////
+  [DYNAMODB_TABLE_RETAIN_TABLE_REPLICA]: {
+    type: FlagType.BugFix,
+    summary: 'When enabled, table replica will be default to the removal policy of source table unless specified otherwise.',
+    detailsMd: `
+      Currently, table replica will always be deleted when stack deletes regardless of source table's deletion policy.
+      When enabled, table replica will be default to the removal policy of source table unless specified otherwise.
+    `,
+    introducedIn: { v2: '2.187.0' },
+    recommendedValue: true,
+  },
+
+  //////////////////////////////////////////////////////////////////////
+  [LOG_USER_POOL_CLIENT_SECRET_VALUE]: {
+    type: FlagType.ApiDefault,
+    summary: 'When disabled, the value of the user pool client secret will not be logged in the custom resource lambda function logs.',
+    detailsMd: `
+      When this feature flag is enabled, the SDK API call response to desribe user pool client values will be logged in the custom 
+      resource lambda function logs.
+      
+      When this feature flag is disabled, the SDK API call response to describe user pool client values will not be logged in the custom 
+      resource lambda function logs.
+    `,
+    introducedIn: { v2: '2.187.0' },
+    defaults: { v2: false },
+    recommendedValue: false,
+    compatibilityWithOldBehaviorMd: 'Enable the feature flag to keep the old behavior and log the client secret values',
   },
 };
 

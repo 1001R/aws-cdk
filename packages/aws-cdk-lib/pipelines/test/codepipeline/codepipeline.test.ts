@@ -10,7 +10,7 @@ import { Stack } from '../../../core';
 import * as cxapi from '../../../cx-api';
 import * as cdkp from '../../lib';
 import { CodePipeline } from '../../lib';
-import { PIPELINE_ENV, TestApp, ModernTestGitHubNpmPipeline, FileAssetApp, TwoStackApp, StageWithStackOutput } from '../testhelpers';
+import { PIPELINE_ENV, TestApp, ModernTestGitHubNpmPipeline, FileAssetApp, TwoStackApp, StageWithStackOutput, MultipleFileAssetsApp } from '../testhelpers';
 
 let app: TestApp;
 
@@ -409,6 +409,86 @@ describe('deployment of stack', () => {
         Name: 'App',
       }]),
     });
+  });
+});
+
+test('display name can contain illegal characters which are sanitized for the pipeline', () => {
+  const pipelineStack = new cdk.Stack(app, 'PipelineStack', { env: PIPELINE_ENV });
+  const pipeline = new ModernTestGitHubNpmPipeline(pipelineStack, 'Cdk', {
+    crossAccountKeys: true,
+    useChangeSets: false,
+  });
+  pipeline.addStage(new FileAssetApp(pipelineStack, 'App', {
+    displayName: 'asdf & also qwerty!',
+  }));
+
+  // THEN
+  const template = Template.fromStack(pipelineStack);
+
+  // We expect `asdf` and `asdf2` Actions in the pipeline
+  template.hasResourceProperties('AWS::CodePipeline::Pipeline', {
+    Stages: Match.arrayWith([{
+      Name: 'Assets',
+      Actions: Match.arrayWith([
+        Match.objectLike({
+          Name: 'asdf_also_qwerty_',
+        }),
+      ]),
+    }]),
+  });
+});
+
+test.each([2, 3])('%p assets can have same display name, which are reflected in the pipeline', (n) => {
+  const pipelineStack = new cdk.Stack(app, 'PipelineStack', { env: PIPELINE_ENV });
+  const pipeline = new ModernTestGitHubNpmPipeline(pipelineStack, 'Cdk', {
+    crossAccountKeys: true,
+    useChangeSets: false,
+  });
+  pipeline.addStage(new MultipleFileAssetsApp(pipelineStack, 'App', {
+    n,
+    displayNames: Array.from({ length: n }, () => 'asdf'),
+  }));
+
+  // THEN
+  const template = Template.fromStack(pipelineStack);
+
+  // We expect at least `asdf` and `asdf2` Actions in the pipeline,
+  template.hasResourceProperties('AWS::CodePipeline::Pipeline', {
+    Stages: Match.arrayWith([{
+      Name: 'Assets',
+      Actions: Match.arrayWith([
+        Match.objectLike({ Name: 'asdf' }),
+        Match.objectLike({ Name: 'asdf2' }),
+        ...(n == 3 ? [Match.objectLike({ Name: 'asdf3' })] : []),
+      ]),
+    }]),
+  });
+});
+
+test('assets can have display names that conflict with calculated action names', () => {
+  const pipelineStack = new cdk.Stack(app, 'PipelineStack', { env: PIPELINE_ENV });
+  const pipeline = new ModernTestGitHubNpmPipeline(pipelineStack, 'Cdk', {
+    crossAccountKeys: true,
+    useChangeSets: false,
+  });
+  pipeline.addStage(new MultipleFileAssetsApp(pipelineStack, 'App', {
+    n: 3,
+    displayNames: ['asdf', 'asdf', 'asdf2'], // asdf2 will conflict with the second generated name which will also be asdf2
+  }));
+
+  // THEN
+  const template = Template.fromStack(pipelineStack);
+
+  // We expect `asdf`, `asdf2` and `asdf22` Actions in the pipeline
+  template.hasResourceProperties('AWS::CodePipeline::Pipeline', {
+    Stages: Match.arrayWith([{
+      Name: 'Assets',
+      Actions: Match.arrayWith([
+        Match.objectLike({ Name: 'asdf' }),
+        Match.objectLike({ Name: 'asdf2' }),
+        Match.objectLike({ Name: 'asdf22' }),
+      ]),
+    }]),
   });
 });
 
